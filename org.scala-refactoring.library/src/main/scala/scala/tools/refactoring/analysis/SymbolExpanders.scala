@@ -90,11 +90,9 @@ trait DependentSymbolExpanders {
         }
         val containingClass = s.owner
 
-        val superClasses = containingClass.ancestors
-
         val subClasses = allSubClasses(containingClass)
 
-        val overrides = (subClasses map (s overridingSymbol _)) ++ (superClasses map (s overriddenSymbol _))
+        val overrides = (subClasses map (s overridingSymbol _)) ++ s.allOverriddenSymbols
 
         overrides
       }
@@ -102,6 +100,18 @@ trait DependentSymbolExpanders {
     })
   }
 
+  trait OverridesInSuperClasses extends SymbolExpander {
+    this : IndexLookup =>
+      
+    abstract override def expand(s: Symbol) = super.expand(s) ++ (s match {
+      case s @ (_: global.TypeSymbol | _: global.TermSymbol) if s.owner.isClass => {
+        s.allOverriddenSymbols
+      }
+      case _ => Nil
+    })
+  }
+  
+  
   trait SameSymbolPosition extends SymbolExpander {
     this: IndexLookup =>
 

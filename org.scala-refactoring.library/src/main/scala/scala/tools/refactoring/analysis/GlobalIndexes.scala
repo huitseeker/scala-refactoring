@@ -20,6 +20,7 @@ import annotation.tailrec
 trait GlobalIndexes extends Indexes with DependentSymbolExpanders with CompilationUnitIndexes with common.PimpedTrees with common.InteractiveScalaCompiler with common.TreeTraverser {
 
   import global._
+  import scala.tools.refactoring.util.UnionFind
 
   object GlobalIndex {
 
@@ -29,9 +30,21 @@ trait GlobalIndexes extends Indexes with DependentSymbolExpanders with Compilati
           SuperConstructorParameters with
           Companion with
           LazyValAccessor with
-          OverridesInClassHierarchy with
+          OverridesInSuperClasses with
           SameSymbolPosition {
+      
         val cus = compilationUnits
+        val ads = allDefinedSymbols.toArray
+        val sIndex = ads.zipWithIndex.toMap
+        val uf = new UnionFind(ads.size)
+        for (s <- ads) {
+          val exps = expand(s) filterNot (_ == NoSymbol)
+          for (es <- exps) {
+            uf.union(sIndex(s), sIndex(es))
+          }
+        }
+        
+        override def expandSymbols(s: Symbol): List[Symbol] = uf.equivalenceClass(ads, sIndex(s))
       }
 
     def apply(t: Tree): IndexLookup = apply(List(CompilationUnitIndex(t)))
@@ -112,7 +125,7 @@ trait GlobalIndexes extends Indexes with DependentSymbolExpanders with Compilati
       }.distinct
     }
 
-    def allDefinedSymbols = cus.flatMap(_.definitions.keys)
+    val allDefinedSymbols = cus.flatMap(_.definitions.keys)
 
     def allSymbols = cus.flatMap(cu => cu.definitions.keys ++ cu.references.keys)
 
