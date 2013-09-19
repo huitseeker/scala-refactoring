@@ -34,9 +34,11 @@ trait GlobalIndexes extends Indexes with DependentSymbolExpanders with Compilati
           SameSymbolPosition {
       
         val cus = compilationUnits
-        val ads = allDefinedSymbols.toArray
+        val ads = cus.flatMap(_.definitions.keys).toArray
+        assert(ads != null)
         val sIndex = ads.zipWithIndex.toMap
-        val uf = new UnionFind(ads.size)
+        assert(sIndex != null)
+        val uf = new UnionFind(ads.length)
         for (s <- ads) {
           val exps = expand(s) filterNot (_ == NoSymbol)
           for (es <- exps) {
@@ -44,7 +46,7 @@ trait GlobalIndexes extends Indexes with DependentSymbolExpanders with Compilati
           }
         }
         
-        override def expandSymbols(s: Symbol): List[Symbol] = uf.equivalenceClass(ads, sIndex(s))
+        override def expandSymbol(s: Symbol): List[Symbol] = uf.equivalenceClass(ads, sIndex(s))
       }
 
     def apply(t: Tree): IndexLookup = apply(List(CompilationUnitIndex(t)))
@@ -125,7 +127,7 @@ trait GlobalIndexes extends Indexes with DependentSymbolExpanders with Compilati
       }.distinct
     }
 
-    val allDefinedSymbols = cus.flatMap(_.definitions.keys)
+    def allDefinedSymbols = cus.flatMap(_.definitions.keys)
 
     def allSymbols = cus.flatMap(cu => cu.definitions.keys ++ cu.references.keys)
 
