@@ -24,6 +24,7 @@ trait GlobalIndexes extends Indexes with DependentSymbolExpanders with Compilati
 
   object GlobalIndex {
 
+
     def apply(compilationUnits: List[CompilationUnitIndex]): IndexLookup =
       new GlobalIndex with
           ExpandGetterSetters with
@@ -32,24 +33,31 @@ trait GlobalIndexes extends Indexes with DependentSymbolExpanders with Compilati
           LazyValAccessor with
           OverridesInSuperClasses with
           SameSymbolPosition {
-      
-        val cus = compilationUnits
-        val ads = cus.flatMap(_.definitions.keys).toArray
-        assert(ads != null)
-        val sIndex = ads.zipWithIndex.toMap
-        assert(sIndex != null)
-        val uf = new UnionFind(ads.length)
-        for (s <- ads) {
-          val exps = expand(s) filterNot (_ == NoSymbol)
-          for (es <- exps) {
-            uf.union(sIndex(s), sIndex(es))
+
+            val cus = compilationUnits
+
+            def ads() = cus.flatMap(cu => cu.definitions.keys ++ cu.references.keys).toArray
+            def sIndex = ads().zipWithIndex.toMap
+
+            @volatile var symbolsMapReady: Boolean = false
+            var uf: UnionFind = _
+            private def symbolsMapInitialization() = {
+              uf = new UnionFind(ads.length)
+              for (s <- ads;
+                   es <- (expand(s) filterNot (_ == NoSymbol)))
+                if (sIndex.contains(s) && sIndex.contains(es)) uf.union(sIndex(s), sIndex(es))
+              symbolsMapReady = true
+              uf
+            }
+
+            def symbolsUF() = if (symbolsMapReady) uf else symbolsMapInitialization()
+
+            override def expandSymbol(s: Symbol): List[Symbol] =
+              if (sIndex.contains(s)) symbolsUF().equivalenceClass(ads(), sIndex(s)) else List()
           }
-        }
-        
-        override def expandSymbol(s: Symbol): List[Symbol] = uf.equivalenceClass(ads, sIndex(s))
-      }
 
     def apply(t: Tree): IndexLookup = apply(List(CompilationUnitIndex(t)))
+
   }
 
   val EmptyIndex = GlobalIndex(Nil)
