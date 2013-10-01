@@ -36,8 +36,7 @@ trait GlobalIndexes extends Indexes with DependentSymbolExpanders with Compilati
 
             val cus = compilationUnits
 
-            lazy val ads = cus.flatMap(cu => cu.definitions.keys ++ cu.references.keys).toArray
-            lazy val sIndex = ads.zipWithIndex.toMap
+            lazy val ads: List[Symbol] = cus.flatMap(cu => cu.definitions.keys ++ cu.references.keys)
 
             /**
              *  A Union-Find for the symbol graph, defined as essentially a lazy 
@@ -45,23 +44,23 @@ trait GlobalIndexes extends Indexes with DependentSymbolExpanders with Compilati
              *  expansion right from the start.
              */
             @volatile var symbolsMapReady: Boolean = false
-            var uf: UnionFind = _
+            var uf: UnionFind[Symbol] = _
             private def symbolsMapInitialization() = {
-              uf = new UnionFind(ads.length)
+              uf = new UnionFind()
               for (s <- ads;
-                   es <- (expand(s) filterNot (_ == NoSymbol)))
-                if (sIndex.contains(s) && sIndex.contains(es)) uf.union(sIndex(s), sIndex(es))
+            	   es <- expand(s) filterNot ( _ == NoSymbol))
+                uf.union(s,es)
               symbolsMapReady = true
               uf
             }
 
             def symbolsUF() = if (symbolsMapReady) uf else symbolsMapInitialization()
 
-            override def expandSymbol(s: Symbol): List[Symbol] =
-              if (sIndex.contains(s)) symbolsUF().equivalenceClass(ads, sIndex(s)) else {
-                throw new IllegalArgumentException("dont know about symbol:"+s.fullName)
-                List()
-              }
+            override def expandSymbol(s: Symbol): List[Symbol] = {
+              if (! ads.contains(s)) 
+                for (es <- expand(s) filterNot (_ == NoSymbol)) symbolsUF().union(s,es)
+              symbolsUF().equivalenceClass(s)
+            }
           }
 
     def apply(t: Tree): IndexLookup = apply(List(CompilationUnitIndex(t)))

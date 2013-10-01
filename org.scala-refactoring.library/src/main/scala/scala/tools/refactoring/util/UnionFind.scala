@@ -1,30 +1,46 @@
 package scala.tools.refactoring.util
 
-import scala.collection.breakOut
+import scala.collection.mutable.Map
+import scala.collection.mutable.HashMap
 
-class UnionFind(n: Int) {
-  val parents: Array[Int] = Array.tabulate(n){(x) => x}
-  val ranks: Array[Int] = Array.fill(n)(1)
+class UnionFind[T]() {
+  
+  private val parents: Map[T, T] = new HashMap[T,T] {
+    override def default(s: T) = {
+        get(s) match {
+          case Some(v) => v
+          case None    => put(s, s); s
+        }
+    }
+  }
+  
+  private val ranks: Map[T, Int] = new HashMap[T,Int] {
+    override def default(s: T) = {
+        get(s) match {
+          case Some(v) => v
+          case None    => put(s, 1); 1
+        }
+    }
+  }
 
   /**
-   * Return the parent (representant) of the equivalence class
-   * of the element indexed at i.
+   * Return the parent (representant) of the equivalence class.
    * Uses path compression.
    */
-  def find(i: Int): Int = {
-    val pi = parents(i)
-    if (pi == i) i else {
-      val ci = find(pi)
-      parents(i) = ci
-      ci
+  def find(s: T): T = {
+    val ps = parents(s)
+    if (ps == s) s else {
+      val cs = find(ps)
+      parents(s) = cs
+      cs
     }
   }
   
   /** 
-   *  Unify equivalence classes of elements indexed at x and y.
+   *  Unify equivalence classes of elements.
    *  Uses union by rank.
    */
-  def union(x: Int, y: Int): Unit = {
+  def union(x: T, y: T): Unit = {
     val cx = find(x)
     val cy = find(y)
     if (cx != cy) {
@@ -40,11 +56,11 @@ class UnionFind(n: Int) {
   }
   
   /**
-   * Enumerates the equivalence class of element at index x
+   * Enumerates the equivalence class of element x
    */
-  def equivalenceClass[T](A: Array[T], x: Int): List[T] = {
+  def equivalenceClass(x: T): List[T] = {
     val px = parents(x)
-    (for (i <- (0 to n-1) if (parents(i) == px)) yield A(i))(breakOut)
+    parents.keys filter (parents(_:T) == px) toList
   }
    
 }
