@@ -8,7 +8,8 @@ class UnionFind(n: Int) {
 
   /**
    * Return the parent (representant) of the equivalence class
-   * of the element indexed at i
+   * of the element indexed at i.
+   * Uses path compression.
    */
   def find(i: Int): Int = {
     val pi = parents(i)
@@ -20,7 +21,8 @@ class UnionFind(n: Int) {
   }
   
   /** 
-   *  Unify equivalence classes of elements indexed at x and y
+   *  Unify equivalence classes of elements indexed at x and y.
+   *  Uses union by rank.
    */
   def union(x: Int, y: Int): Unit = {
     val cx = find(x)

@@ -28,6 +28,8 @@ trait DependentSymbolExpanders {
   }
 
   trait ExpandGetterSetters extends SymbolExpander {
+    this: IndexLookup =>
+      
     abstract override def expand(s: Symbol) = super.expand(s) ++ (s match {
       case s if s.hasFlag(Flags.ACCESSOR) =>
         s.accessed :: Nil

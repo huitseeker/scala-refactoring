@@ -36,9 +36,14 @@ trait GlobalIndexes extends Indexes with DependentSymbolExpanders with Compilati
 
             val cus = compilationUnits
 
-            def ads() = cus.flatMap(cu => cu.definitions.keys ++ cu.references.keys).toArray
-            def sIndex = ads().zipWithIndex.toMap
+            lazy val ads = cus.flatMap(cu => cu.definitions.keys ++ cu.references.keys).toArray
+            lazy val sIndex = ads.zipWithIndex.toMap
 
+            /**
+             *  A Union-Find for the symbol graph, defined as essentially a lazy 
+             *  val with custom initialization to unify symbols related through
+             *  expansion right from the start.
+             */
             @volatile var symbolsMapReady: Boolean = false
             var uf: UnionFind = _
             private def symbolsMapInitialization() = {
@@ -53,7 +58,10 @@ trait GlobalIndexes extends Indexes with DependentSymbolExpanders with Compilati
             def symbolsUF() = if (symbolsMapReady) uf else symbolsMapInitialization()
 
             override def expandSymbol(s: Symbol): List[Symbol] =
-              if (sIndex.contains(s)) symbolsUF().equivalenceClass(ads(), sIndex(s)) else List()
+              if (sIndex.contains(s)) symbolsUF().equivalenceClass(ads, sIndex(s)) else {
+                throw new IllegalArgumentException("dont know about symbol:"+s.fullName)
+                List()
+              }
           }
 
     def apply(t: Tree): IndexLookup = apply(List(CompilationUnitIndex(t)))
