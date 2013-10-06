@@ -1,11 +1,12 @@
 package scala.tools.refactoring.util
 
 import scala.collection.mutable.Map
+import scala.collection.mutable.HashSet
 import scala.collection.mutable.HashMap
 
 class UnionFind[T]() {
-  
-  private val parents: Map[T, T] = new HashMap[T,T] {
+
+  val parents: Map[T, T] = new HashMap[T,T] {
     override def default(s: T) = {
         get(s) match {
           case Some(v) => v
@@ -13,7 +14,7 @@ class UnionFind[T]() {
         }
     }
   }
-  
+
   private val ranks: Map[T, Int] = new HashMap[T,Int] {
     override def default(s: T) = {
         get(s) match {
@@ -35,8 +36,8 @@ class UnionFind[T]() {
       cs
     }
   }
-  
-  /** 
+
+  /**
    *  Unify equivalence classes of elements.
    *  Uses union by rank.
    */
@@ -54,7 +55,7 @@ class UnionFind[T]() {
       	}
     }
   }
-  
+
   /**
    * Enumerates the equivalence class of element x
    */
@@ -62,5 +63,5 @@ class UnionFind[T]() {
     val px = parents(x)
     parents.keys filter (parents(_:T) == px) toList
   }
-   
+
 }

@@ -36,20 +36,32 @@ trait GlobalIndexes extends Indexes with DependentSymbolExpanders with Compilati
 
             val cus = compilationUnits
 
-            lazy val ads: List[Symbol] = cus.flatMap(cu => cu.definitions.keys ++ cu.references.keys)
+            def flushSymbols(syms:List[Symbol], seen:HashSet[Symbol]): Unit = {
+              if (syms.nonEmpty){
+                for (s <- syms;
+            	     es <- expand(s) filterNot (_ == NoSymbol))
+                  uf.union(s, es)
+                val next = syms flatMap expand filterNot (x => seen(x) || x == NoSymbol)
+                flushSymbols(next, seen ++ next)
+              }
+            }
 
             /**
-             *  A Union-Find for the symbol graph, defined as essentially a lazy 
-             *  val with custom initialization to unify symbols related through
+             *  A Union-Find for the symbol graph, defined as essentially a lazy
+             *  val with custom initialization to link symbols related through
              *  expansion right from the start.
              */
             @volatile var symbolsMapReady: Boolean = false
             var uf: UnionFind[Symbol] = _
             private def symbolsMapInitialization() = {
               uf = new UnionFind()
-              for (s <- ads;
+              for (s <- allSymbols();
             	   es <- expand(s) filterNot ( _ == NoSymbol))
                 uf.union(s,es)
+              for (s <- uf.parents.keys filter (allSymbols.contains(_));
+            	   es <- expand(s) filterNot ( _ == NoSymbol))
+                uf.union(s,es)
+              flushSymbols(allSymbols, new HashSet[Symbol]() ++ allSymbols)
               symbolsMapReady = true
               uf
             }
@@ -57,8 +69,6 @@ trait GlobalIndexes extends Indexes with DependentSymbolExpanders with Compilati
             def symbolsUF() = if (symbolsMapReady) uf else symbolsMapInitialization()
 
             override def expandSymbol(s: Symbol): List[Symbol] = {
-              if (! ads.contains(s)) 
-                for (es <- expand(s) filterNot (_ == NoSymbol)) symbolsUF().union(s,es)
               symbolsUF().equivalenceClass(s)
             }
           }
