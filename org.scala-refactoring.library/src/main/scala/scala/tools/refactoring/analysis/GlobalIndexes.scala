@@ -31,18 +31,23 @@ trait GlobalIndexes extends Indexes with DependentSymbolExpanders with Compilati
           SuperConstructorParameters with
           Companion with
           LazyValAccessor with
-          OverridesInSuperClasses with
-          SameSymbolPosition {
+          OverridesInSuperClasses {
 
             val cus = compilationUnits
 
-            def flushSymbols(syms:List[Symbol], seen:HashSet[Symbol]): Unit = {
+            def linkSymbols(syms:List[Symbol], seen:HashSet[Symbol]): Unit = {
               if (syms.nonEmpty){
+                val nextSymbols = ListBuffer[Symbol]()
                 for (s <- syms;
-            	     es <- expand(s) filterNot (_ == NoSymbol))
+            	     es <- expand(s) filterNot (_ == NoSymbol)){
                   uf.union(s, es)
-                val next = syms flatMap expand filterNot (x => seen(x) || x == NoSymbol)
-                flushSymbols(next, seen ++ next)
+                  if (!seen(es)) {
+                    seen += es
+                    nextSymbols += es
+                  }
+                }
+
+                linkSymbols(nextSymbols.toList, seen)
               }
             }
 
@@ -55,22 +60,15 @@ trait GlobalIndexes extends Indexes with DependentSymbolExpanders with Compilati
             var uf: UnionFind[Symbol] = _
             private def symbolsMapInitialization() = {
               uf = new UnionFind()
-              for (s <- allSymbols();
-            	   es <- expand(s) filterNot ( _ == NoSymbol))
-                uf.union(s,es)
-              for (s <- uf.parents.keys filter (allSymbols.contains(_));
-            	   es <- expand(s) filterNot ( _ == NoSymbol))
-                uf.union(s,es)
-              flushSymbols(allSymbols, new HashSet[Symbol]() ++ allSymbols)
+              linkSymbols(allSymbols, new HashSet[Symbol]())
               symbolsMapReady = true
               uf
             }
 
             def symbolsUF() = if (symbolsMapReady) uf else symbolsMapInitialization()
 
-            override def expandSymbol(s: Symbol): List[Symbol] = {
-              symbolsUF().equivalenceClass(s)
-            }
+            override def expandSymbol(s: Symbol): List[Symbol] = symbolsUF().equivalenceClass(s)
+
           }
 
     def apply(t: Tree): IndexLookup = apply(List(CompilationUnitIndex(t)))
